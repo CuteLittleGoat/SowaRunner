@@ -161,6 +161,12 @@ function setup() {
   createCanvas(920, 520);
   groundY = height - 110;
 
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) ensureAudio();
+    });
+  }
+
   // default difficulty
   applyDifficulty(selectedDifficultyIndex);
 
@@ -245,6 +251,8 @@ function keyPressed() {
 }
 
 function mousePressed() {
+  ensureAudio();
+
   // click on buttons in start screen
   if (state === ST_START) {
     const hit = hitTestDifficultyButtons(mouseX, mouseY);
@@ -253,6 +261,11 @@ function mousePressed() {
       return;
     }
   }
+  handlePrimaryAction();
+}
+
+function touchStarted() {
+  ensureAudio();
   handlePrimaryAction();
 }
 
@@ -317,6 +330,10 @@ function drawStartScreen() {
   fill(255, 210);
   textSize(14);
   text("Zbieraj liście • Unikaj przeszkód • Koza = mini-gra (+życie / bonus)", width / 2, height / 2 + 114);
+
+  fill(255, 180);
+  textSize(13);
+  text("Jeśli dźwięk jest wstrzymany przez przeglądarkę, pierwszy tap go włączy.", width / 2, height / 2 + 138);
 
   if (lastTime > 0) {
     fill(255, 230);
@@ -1123,6 +1140,10 @@ function formatTime(sec) {
 // AUDIO (WebAudio)
 // =====================
 function ensureAudio() {
+  if (audio.ctx && audio.ctx.state === "suspended") {
+    audio.ctx.resume();
+  }
+
   if (audio.ready) return;
   audio.ready = true;
 
