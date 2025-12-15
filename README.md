@@ -45,13 +45,13 @@ Przeglądarkowa gra typu endless runner napisana w **p5.js** i **p5.sound**. Ste
 ## Przebieg rozgrywki
 - Gra startuje po wybraniu trudności i wykonaniu pierwszego skoku/kliku.
 - Na HUD widzisz aktualną liczbę punktów, żyć oraz aktywny poziom trudności.
-- Przeszkody (dziury, mury, stacje „Amic”) trzeba omijać – zderzenie bez nietykalności zabiera jedno życie i uruchamia krótką nietykalność.
+- Przeszkody (dziury, mury, stacje „Amic”) trzeba omijać – zderzenie bez nietykalności zabiera jedno życie i uruchamia krótką nietykalność. Na daszku stacji „Amic” można bezpiecznie wylądować jak na platformie.
 - Liście unoszą się nad trasą; podniesienie ich daje punkty i jest uwzględniane w podsumowaniu po utracie wszystkich żyć.
 - Spotkanie z kozą uruchamia mini‑gierkę fal; jej ukończenie dodaje premię punktową i może przyznać dodatkowe życie.
 - Po utracie wszystkich żyć gra wraca do ekranu startowego, pokazując ostatni wynik, czas biegu i informacje o zebranych liściach.
 
 ### Poziomy trudności
-- **Łatwy:** wolniejsze tempo, więcej serc startowych, dłuższe okno nietykalności.
+- **Łatwy:** wolniejsze tempo, więcej serc startowych, dłuższe okno nietykalności oraz luźniej rozstawione przeszkody.
 - **Normalny:** domyślny balans przeszkód i prędkości.
 - **Trudny:** szybszy bieg, gęstsze przeszkody i krótsza nietykalność.
 
