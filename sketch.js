@@ -27,11 +27,11 @@ const DIFFICULTIES = [
     // =====================
     // POZIOMY TRUDNOŚCI
     // =====================
-    maxSpeed: 10.2,
-    speedRampPerSec: 0.06,
-    hazardGapMinPx: 220,
-    hazardGapMaxPx: 360,
-    platformChance: 0.008
+    maxSpeed: 9.2,
+    speedRampPerSec: 0.045,
+    hazardGapMinPx: 260,
+    hazardGapMaxPx: 420,
+    platformChance: 0.012
   },
   {
     id: "normal",
@@ -235,7 +235,7 @@ function rescaleGameObjects(scaleX, scaleY) {
   rescaleArray(holes, ["x", "w"], []);
   rescaleArray(walls, ["x", "w"], ["y", "h"]);
   rescaleArray(platforms, ["x", "w"], ["y", "h"]);
-  rescaleArray(amicStations, ["x", "w"], ["y", "h"]);
+  rescaleArray(amicStations, ["x", "w"], ["y", "h", "roofH"]);
 
   rescaleArray(goats, ["x", "vx"], ["y", "vy"]);
   rescaleArray(pracuTexts, ["x", "w"], ["y", "h"]);
@@ -625,20 +625,28 @@ function spawnLogic() {
   if (hazardGapLeftPx > 0) return;
 
   const type = pickHazardType();
+  let hazardWidth = sx(80);
   if (type === "hole") {
     const w = random(sx(95), sx(180));
     holes.push({ x: width + sx(60), w });
+    hazardWidth = w;
   } else if (type === "wall") {
     const h = random(sy(100), sy(155));
     walls.push({ x: width + sx(60), y: groundY - h, w: sx(38), h });
+    hazardWidth = sx(38);
   } else if (type === "pracu") {
     const y = random(groundY - sy(220), groundY - sy(120));
     pracuTexts.push(newPracu(width + sx(140), y));
+    hazardWidth = sx(190);
   } else if (type === "amic") {
-    amicStations.push({ x: width + sx(60), y: groundY - sy(70), w: sx(112), h: sy(70) });
+    amicStations.push({ x: width + sx(60), y: groundY - sy(70), w: sx(112), h: sy(70), roofH: sy(14) });
+    hazardWidth = sx(112);
   }
 
-  hazardGapLeftPx = random(activeCFG.hazardGapMinPx, activeCFG.hazardGapMaxPx);
+  const jumpStats = computeJumpStats(speed);
+  const baseGap = random(activeCFG.hazardGapMinPx, activeCFG.hazardGapMaxPx);
+  const recoveryGap = max(0, jumpStats.airDistance * 0.55 - hazardWidth * 0.35);
+  hazardGapLeftPx = max(baseGap, recoveryGap);
 }
 
 function pickHazardType() {
@@ -649,6 +657,33 @@ function pickHazardType() {
   if ((r -= w.wall) < 0) return "wall";
   if ((r -= w.pracu) < 0) return "pracu";
   return "amic";
+}
+
+function computeJumpStats(runSpeed) {
+  let y = 0;
+  let vy = BASE.jumpPower;
+  let minY = 0;
+  let distance = 0;
+  let frames = 0;
+  let doubleUsed = false;
+
+  while (frames < 240) {
+    y += vy;
+    vy += BASE.gravity;
+    distance += runSpeed;
+    frames++;
+
+    if (!doubleUsed && vy >= 0) {
+      vy = BASE.doubleJumpPower;
+      doubleUsed = true;
+    }
+
+    minY = min(minY, y);
+
+    if (doubleUsed && y >= 0 && vy >= 0) break;
+  }
+
+  return { maxHeight: -minY, airDistance: distance, frames };
 }
 
 // =====================
@@ -673,6 +708,32 @@ function updateOwl(dt) {
 
     if (withinX && falling && wasAbove && owl.y + owl.r >= top) {
       owl.y = top - owl.r;
+      owl.vy = 0;
+      landed = true;
+    }
+  }
+
+  // AMIC roof landing
+  for (const a of amicStations) {
+    const roofTop = a.y;
+    const roofMargin = a.roofH || sy(14);
+    const left = a.x - sx(6);
+    const right = a.x + a.w + sx(6);
+
+    const wasAbove = (owl.y - owl.vy) <= roofTop - owl.r;
+    const withinX = owl.x + owl.r > left && owl.x - owl.r < right;
+    const falling = owl.vy >= 0;
+
+    if (withinX && falling && wasAbove && owl.y + owl.r >= roofTop - 1) {
+      owl.y = roofTop - owl.r;
+      owl.vy = 0;
+      landed = true;
+    }
+
+    // If we skim the roof edge slightly below the top, allow a gentle snap upwards.
+    const isNearRoof = owl.y + owl.r > roofTop && owl.y + owl.r < roofTop + roofMargin;
+    if (withinX && falling && isNearRoof && wasAbove) {
+      owl.y = roofTop - owl.r;
       owl.vy = 0;
       landed = true;
     }
@@ -745,7 +806,12 @@ function collideWithWalls() {
   return false;
 }
 function collideWithAmic() {
-  for (const a of amicStations) if (collideCircleRect(owl.x, owl.y, owl.r, a.x, a.y, a.w, a.h)) return true;
+  for (const a of amicStations) {
+    const roofMargin = (a.roofH || sy(14));
+    const onRoof = owl.y + owl.r <= a.y + roofMargin;
+    if (onRoof) continue;
+    if (collideCircleRect(owl.x, owl.y, owl.r, a.x, a.y, a.w, a.h)) return true;
+  }
   return false;
 }
 function collideWithPracu() {
@@ -1018,6 +1084,11 @@ function updateAmic() {
     push();
     translate(a.x, a.y);
     noStroke();
+    const roofH = a.roofH || sy(14);
+    fill(240, 85, 95);
+    rect(-sx(10), -roofH, a.w + sx(20), roofH + sy(6), 12);
+    fill(255, 255, 255, 120);
+    rect(-sx(6), -roofH + sy(4), a.w + sx(12), sy(5), 8);
     fill(250);
     rect(0, 0, a.w, a.h, 10);
     fill(230, 60, 70);
