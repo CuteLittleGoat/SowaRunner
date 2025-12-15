@@ -98,6 +98,16 @@ const BASE = {
   whaleExtraLifeBonusPoints: 320
 };
 
+const DESIGN_WIDTH = 920;
+const DESIGN_HEIGHT = 520;
+const DESIGN_GROUND_OFFSET = 110;
+
+let layoutScaleX = 1;
+let layoutScaleY = 1;
+
+const sx = (v) => v * layoutScaleX;
+const sy = (v) => v * layoutScaleY;
+
 // =====================
 // WORLD / SCORE
 // =====================
@@ -158,14 +168,71 @@ let audio = {
 };
 
 function setup() {
-  createCanvas(920, 520);
-  groundY = height - 110;
+  createCanvas(windowWidth, windowHeight);
+  updateLayout(DESIGN_WIDTH, DESIGN_HEIGHT);
 
   // default difficulty
   applyDifficulty(selectedDifficultyIndex);
 
   seedBackground();
   resetRunner(true);
+}
+
+function updateLayout(prevWidth = width, prevHeight = height) {
+  const scaleX = width / prevWidth;
+  const scaleY = height / prevHeight;
+
+  layoutScaleX = width / DESIGN_WIDTH;
+  layoutScaleY = height / DESIGN_HEIGHT;
+
+  groundY = height - sy(DESIGN_GROUND_OFFSET);
+  hazardGapLeftPx *= scaleX;
+
+  rescaleGameObjects(scaleX, scaleY);
+}
+
+function rescaleGameObjects(scaleX, scaleY) {
+  if (!isFinite(scaleX) || !isFinite(scaleY)) return;
+
+  const rescaleArray = (arr, keysX, keysY) => {
+    if (!arr) return;
+    for (const item of arr) {
+      for (const k of keysX) item[k] *= scaleX;
+      for (const k of keysY) item[k] *= scaleY;
+    }
+  };
+
+  if (owl) {
+    owl.x *= scaleX;
+    owl.y *= scaleY;
+    owl.r *= scaleY;
+    owl.vy *= scaleY;
+  }
+
+  rescaleArray(leaves, ["x"], ["y"]);
+  rescaleArray(holes, ["x", "w"], []);
+  rescaleArray(walls, ["x", "w"], ["y", "h"]);
+  rescaleArray(platforms, ["x", "w"], ["y", "h"]);
+  rescaleArray(amicStations, ["x", "w"], ["y", "h"]);
+
+  rescaleArray(goats, ["x", "vx"], ["y", "vy"]);
+  rescaleArray(pracuTexts, ["x", "w"], ["y", "h"]);
+  rescaleArray(clouds, ["x"], ["y"]);
+  rescaleArray(trees, ["x"], ["y"]);
+
+  if (whale) {
+    whale.x *= scaleX;
+    whale.y *= scaleY;
+    whale.vx *= scaleX;
+    whale.vy *= scaleY;
+  }
+
+  for (const f of faleWords) {
+    f.x *= scaleX;
+    f.y *= scaleY;
+    f.vx *= scaleX;
+    f.vy *= scaleY;
+  }
 }
 
 function applyDifficulty(idx) {
@@ -191,9 +258,9 @@ function resetRunner(keepLast = false) {
   invulnTimer = 0;
 
   owl = {
-    x: 160,
-    y: groundY - 30,
-    r: 30,
+    x: sx(160),
+    y: groundY - sy(30),
+    r: sy(30),
     vy: 0,
     jumpsLeft: 2,
     wingPhase: 0,
@@ -214,7 +281,7 @@ function resetRunner(keepLast = false) {
   }
 
   hazardGapLeftPx = random(activeCFG.hazardGapMinPx, activeCFG.hazardGapMaxPx);
-  holes.push({ x: -1000, w: 10 });
+  holes.push({ x: -sx(1000), w: sx(10) });
 }
 
 function draw() {
@@ -254,6 +321,13 @@ function mousePressed() {
     }
   }
   handlePrimaryAction();
+}
+
+function windowResized() {
+  const prevWidth = width;
+  const prevHeight = height;
+  resizeCanvas(windowWidth, windowHeight);
+  updateLayout(prevWidth, prevHeight);
 }
 
 function handlePrimaryAction() {
@@ -327,7 +401,7 @@ function drawStartScreen() {
 
   // mascot
   push();
-  translate(width / 2, groundY - 18);
+  translate(width / 2, groundY - sy(18));
   drawCuteOwl(0, 0, 1.25, 0.10, true);
   pop();
 }
@@ -417,8 +491,8 @@ function spawnLogic() {
   // leaves
   if (random() < BASE.spawnLeafChance) {
     leaves.push({
-      x: width + 40,
-      y: random(groundY - 190, groundY - 70),
+      x: width + sx(40),
+      y: random(groundY - sy(190), groundY - sy(70)),
       kind: random() < 0.55 ? "monstera" : "alocasia",
       spin: random(TWO_PI),
       bob: random(TWO_PI)
@@ -427,13 +501,13 @@ function spawnLogic() {
 
   // goat
   if (random() < BASE.spawnGoatChance) {
-    goats.push(newGoat(width + 80));
+    goats.push(newGoat(width + sx(80)));
   }
 
   // platform (difficulty controlled)
   if (random() < activeCFG.platformChance) {
-    const py = random(groundY - 205, groundY - 125);
-    platforms.push({ x: width + 200, y: py, w: random(160, 240), h: 18 });
+    const py = random(groundY - sy(205), groundY - sy(125));
+    platforms.push({ x: width + sx(200), y: py, w: random(sx(160), sx(240)), h: sy(18) });
   }
 
   // hazard gap in px
@@ -442,16 +516,16 @@ function spawnLogic() {
 
   const type = pickHazardType();
   if (type === "hole") {
-    const w = random(95, 180);
-    holes.push({ x: width + 60, w });
+    const w = random(sx(95), sx(180));
+    holes.push({ x: width + sx(60), w });
   } else if (type === "wall") {
-    const h = random(100, 155);
-    walls.push({ x: width + 60, y: groundY - h, w: 38, h });
+    const h = random(sy(100), sy(155));
+    walls.push({ x: width + sx(60), y: groundY - h, w: sx(38), h });
   } else if (type === "pracu") {
-    const y = random(groundY - 220, groundY - 120);
-    pracuTexts.push(newPracu(width + 140, y));
+    const y = random(groundY - sy(220), groundY - sy(120));
+    pracuTexts.push(newPracu(width + sx(140), y));
   } else if (type === "amic") {
-    amicStations.push({ x: width + 60, y: groundY - 70, w: 112, h: 70 });
+    amicStations.push({ x: width + sx(60), y: groundY - sy(70), w: sx(112), h: sy(70) });
   }
 
   hazardGapLeftPx = random(activeCFG.hazardGapMinPx, activeCFG.hazardGapMaxPx);
@@ -503,7 +577,7 @@ function updateOwl(dt) {
       landed = true;
     }
   } else {
-    if (owl.y > groundY + 35) {
+    if (owl.y > groundY + sy(35)) {
       takeHit();
       owl.y = groundY - owl.r;
       owl.vy = 0;
@@ -853,7 +927,7 @@ function updateAmic() {
 }
 
 function newPracu(x, y) {
-  return { x, y, text: "Pracu Pracu!", w: 190, h: 40, wob: random(TWO_PI) };
+  return { x, y, text: "Pracu Pracu!", w: sx(190), h: sy(40), wob: random(TWO_PI) };
 }
 
 function updatePracuTexts() {
@@ -887,7 +961,7 @@ function drawPracu(t) {
 // GOATS
 // =====================
 function newGoat(x) {
-  return { x, y: groundY - 6, vx: random(-1.2, 2.0), vy: random(-12, -9), bob: random(TWO_PI) };
+  return { x, y: groundY - sy(6), vx: random(-1.2, 2.0), vy: random(-12, -9), bob: random(TWO_PI) };
 }
 
 function updateGoats() {
@@ -899,8 +973,8 @@ function updateGoats() {
     g.vy += 0.72;
     g.y += g.vy;
 
-    if (g.y > groundY - 6) {
-      g.y = groundY - 6;
+    if (g.y > groundY - sy(6)) {
+      g.y = groundY - sy(6);
       g.vy = random(-12, -9);
       if (random() < 0.35) g.vx *= -1;
       g.vx = constrain(g.vx + random(-0.35, 0.35), -2.2, 2.2);
@@ -1279,10 +1353,10 @@ function seedBackground() {
   trees = [];
 
   for (let i = 0; i < 8; i++) {
-    clouds.push({ x: random(width), y: random(40, 180), s: random(0.7, 1.3), sp: random(0.2, 0.6) });
+    clouds.push({ x: random(width), y: random(sy(40), sy(180)), s: random(0.7, 1.3), sp: random(0.2, 0.6) });
   }
   for (let i = 0; i < 10; i++) {
-    trees.push({ x: random(width), y: groundY + 28, s: random(0.8, 1.3), sp: random(0.4, 0.9) });
+    trees.push({ x: random(width), y: groundY + sy(28), s: random(0.8, 1.3), sp: random(0.4, 0.9) });
   }
 }
 
@@ -1331,11 +1405,12 @@ function drawGroundAndHills(spd) {
   noStroke();
   fill(120, 200, 150, 130);
   for (let i = 0; i < 7; i++) {
-    const hx = (i * 180) - ((frameCount * (spd * 0.35)) % 180);
-    ellipse(hx, groundY + 10, 240, 120);
+    const spacing = sx(180);
+    const hx = (i * spacing) - ((frameCount * (spd * 0.35)) % spacing);
+    ellipse(hx, groundY + sy(10), sx(240), sy(120));
   }
   fill(80, 185, 110);
   rect(0, groundY, width, height - groundY);
   fill(0, 0, 0, 25);
-  rect(0, groundY + 24, width, 44);
+  rect(0, groundY + sy(24), width, sy(44));
 }
