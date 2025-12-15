@@ -358,7 +358,11 @@ function windowResized() {
   const prevHeight = height;
   resizeCanvas(windowWidth, windowHeight);
   updateLayout(prevWidth, prevHeight);
+}
+
 function touchStarted() {
+  ensureAudio();
+
   if (state === ST_START) {
     const hit = hitTestDifficultyButtons(mouseX, mouseY);
     if (hit !== -1) {
@@ -377,8 +381,6 @@ function touchStarted() {
   if (shouldThrottleTouch()) return false;
   handlePrimaryAction();
   return false;
-  ensureAudio();
-  handlePrimaryAction();
 }
 
 function handlePrimaryAction() {
