@@ -64,6 +64,22 @@ const DIFFICULTIES = [
 let selectedDifficultyIndex = 0;
 let activeCFG = null;
 
+// touch control
+const TOUCH_ACTION_COOLDOWN_MS = 240;
+let lastTouchActionMillis = -Infinity;
+
+// UI layout helpers
+const DIFFICULTY_UI = {
+  width: 190,
+  height: 74,
+  gap: 20
+};
+const START_BUTTON_UI = {
+  width: 280,
+  height: 92,
+  yOffset: 62
+};
+
 // =====================
 // CONFIG (stałe elementy)
 // =====================
@@ -245,6 +261,8 @@ function keyPressed() {
 }
 
 function mousePressed() {
+  if (wasRecentTouch()) return;
+
   // click on buttons in start screen
   if (state === ST_START) {
     const hit = hitTestDifficultyButtons(mouseX, mouseY);
@@ -252,8 +270,34 @@ function mousePressed() {
       applyDifficulty(hit);
       return;
     }
+
+    if (hitTestStartButton(mouseX, mouseY)) {
+      handlePrimaryAction();
+      return;
+    }
   }
   handlePrimaryAction();
+}
+
+function touchStarted() {
+  if (state === ST_START) {
+    const hit = hitTestDifficultyButtons(mouseX, mouseY);
+    if (hit !== -1) {
+      applyDifficulty(hit);
+      recordTouchAction();
+      return false;
+    }
+
+    if (hitTestStartButton(mouseX, mouseY)) {
+      recordTouchAction();
+      handlePrimaryAction();
+      return false;
+    }
+  }
+
+  if (shouldThrottleTouch()) return false;
+  handlePrimaryAction();
+  return false;
 }
 
 function handlePrimaryAction() {
@@ -267,6 +311,21 @@ function handlePrimaryAction() {
   if (state === ST_RUNNER) {
     tryJump();
   }
+}
+
+function shouldThrottleTouch() {
+  const now = millis();
+  if (now - lastTouchActionMillis < TOUCH_ACTION_COOLDOWN_MS) return true;
+  lastTouchActionMillis = now;
+  return false;
+}
+
+function recordTouchAction() {
+  lastTouchActionMillis = millis();
+}
+
+function wasRecentTouch() {
+  return millis() - lastTouchActionMillis < TOUCH_ACTION_COOLDOWN_MS;
 }
 
 function tryJump() {
@@ -306,22 +365,23 @@ function drawStartScreen() {
   pop();
 
   drawDifficultyButtons();
+  drawStartButton();
 
   // instructions
   push();
   textAlign(CENTER, CENTER);
   fill(255, 240);
-  textSize(16);
-  text("Spacja / klik — start    |    Podwójny skok: 2x", width / 2, height / 2 + 88);
+  textSize(17);
+  text("Spacja / Start / tap — start lub skok    |    Podwójny skok: 2x", width / 2, height / 2 + 160);
 
   fill(255, 210);
   textSize(14);
-  text("Zbieraj liście • Unikaj przeszkód • Koza = mini-gra (+życie / bonus)", width / 2, height / 2 + 114);
+  text("Zbieraj liście • Unikaj przeszkód • Koza = mini-gra (+życie / bonus)", width / 2, height / 2 + 186);
 
   if (lastTime > 0) {
     fill(255, 230);
     textSize(16);
-    text(`Ostatni wynik: ${floor(lastScore)} pkt  •  Czas: ${formatTime(lastTime)}`, width / 2, height / 2 + 148);
+    text(`Ostatni wynik: ${floor(lastScore)} pkt  •  Czas: ${formatTime(lastTime)}`, width / 2, height / 2 + 214);
   }
   pop();
 
@@ -333,47 +393,84 @@ function drawStartScreen() {
 }
 
 function drawDifficultyButtons() {
-  const cx = width / 2;
-  const y = height / 2 - 20;
-  const w = 160;
-  const h = 56;
-  const gap = 16;
-
   for (let i = 0; i < DIFFICULTIES.length; i++) {
-    const x = cx - (w * 1.5 + gap) + i * (w + gap);
+    const { x, y, w, h } = getDifficultyButtonRect(i);
     const isSel = i === selectedDifficultyIndex;
 
     push();
     noStroke();
-    fill(isSel ? color(255, 255, 255, 220) : color(255, 255, 255, 120));
-    rect(x, y, w, h, 14);
+    fill(isSel ? color(255, 255, 255, 230) : color(255, 255, 255, 140));
+    rect(x, y, w, h, 16);
 
-    fill(0, isSel ? 200 : 160);
+    fill(0, isSel ? 210 : 170);
     textAlign(CENTER, CENTER);
     textStyle(BOLD);
-    textSize(16);
-    text(`${i + 1}. ${DIFFICULTIES[i].name}`, x + w / 2, y + 19);
+    textSize(18);
+    text(`${i + 1}. ${DIFFICULTIES[i].name}`, x + w / 2, y + 24);
 
     textStyle(NORMAL);
-    textSize(11);
-    fill(0, isSel ? 170 : 120);
-    text(DIFFICULTIES[i].desc, x + w / 2, y + 41);
+    textSize(12);
+    fill(0, isSel ? 180 : 140);
+    text(DIFFICULTIES[i].desc, x + w / 2, y + h - 22);
     pop();
   }
 }
 
 function hitTestDifficultyButtons(mx, my) {
-  const cx = width / 2;
-  const y = height / 2 - 20;
-  const w = 160;
-  const h = 56;
-  const gap = 16;
-
   for (let i = 0; i < DIFFICULTIES.length; i++) {
-    const x = cx - (w * 1.5 + gap) + i * (w + gap);
+    const { x, y, w, h } = getDifficultyButtonRect(i, 12);
     if (mx >= x && mx <= x + w && my >= y && my <= y + h) return i;
   }
   return -1;
+}
+
+function getDifficultyButtonRect(idx, extraPadding = 0) {
+  const cx = width / 2;
+  const y = height / 2 - 20;
+  const w = DIFFICULTY_UI.width + extraPadding * 2;
+  const h = DIFFICULTY_UI.height + extraPadding * 2;
+  const gap = DIFFICULTY_UI.gap;
+
+  const baseX = cx - (DIFFICULTY_UI.width * 1.5 + gap) + idx * (DIFFICULTY_UI.width + gap);
+  const x = baseX - extraPadding;
+
+  return { x, y: y - extraPadding, w, h };
+}
+
+function drawStartButton() {
+  const { x, y, w, h } = getStartButtonRect();
+
+  push();
+  noStroke();
+  fill(0, 0, 0, 60);
+  rect(x - 6, y + 6, w + 12, h + 12, 18);
+
+  fill(color(255, 234, 167, 235));
+  rect(x, y, w, h, 18);
+
+  fill(60, 40, 0);
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  textStyle(BOLD);
+  text("Start / Skok", x + w / 2, y + h / 2 - 6);
+
+  textStyle(NORMAL);
+  textSize(13);
+  text("Spacja lub tapnięcie", x + w / 2, y + h / 2 + 18);
+  pop();
+}
+
+function getStartButtonRect() {
+  const w = START_BUTTON_UI.width;
+  const h = START_BUTTON_UI.height;
+  const x = width / 2 - w / 2;
+  const y = height / 2 + START_BUTTON_UI.yOffset;
+  return { x, y, w, h };
+}
+
+function hitTestStartButton(mx, my) {
+  const { x, y, w, h } = getStartButtonRect();
+  return mx >= x && mx <= x + w && my >= y && my <= y + h;
 }
 
 // =====================
