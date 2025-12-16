@@ -627,11 +627,11 @@ function spawnLogic() {
   const type = pickHazardType();
   let hazardWidth = sx(80);
   if (type === "hole") {
-    const w = random(sx(95), sx(180));
+    const w = random(sx(48), sx(90));
     holes.push({ x: width + sx(60), w });
     hazardWidth = w;
   } else if (type === "wall") {
-    const h = random(sy(100), sy(155));
+    const h = random(sy(50), sy(78));
     walls.push({ x: width + sx(60), y: groundY - h, w: sx(38), h });
     hazardWidth = sx(38);
   } else if (type === "pracu") {
